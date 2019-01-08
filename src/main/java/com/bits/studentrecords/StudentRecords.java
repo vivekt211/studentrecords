@@ -34,7 +34,6 @@ public class StudentRecords {
 		try {
 			br = new BufferedReader(new FileReader("input.txt"));
 		} catch (FileNotFoundException e) {
-
 			e.printStackTrace();
 		}
 
@@ -57,7 +56,6 @@ public class StudentRecords {
 
 	// Insert a single record in table
 	private void insertStudentRec(StudentHash records, String studentId, float CGPA) {
-
 		records.insert(studentId, CGPA);
 	}
 

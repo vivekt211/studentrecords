@@ -12,38 +12,28 @@ public class StudentHash {
 		SEPARATE_CHAINING, LINEAR_PROBING, QUADRATIC_PROBING
 	}
 
-	private static final CollissionResolutionStrategy resolutionStrategy = CollissionResolutionStrategy.QUADRATIC_PROBING;
+	/**
+	 * By Changing the value of this field the collosionResolutionStrategy can
+	 * be configured. Please change it as per your need
+	 */
+	private static final CollissionResolutionStrategy resolutionStrategy = CollissionResolutionStrategy.SEPARATE_CHAINING;
 	private int capacity = 32;
 	private StudentRecord[] recordTable;
+	private Node[] recordNodes;
 	private int recordCount = 0;
-
-	// Structure to hold student records
-	private class StudentRecord {
-
-		private String studentId;
-		private Float cgpa;
-
-		StudentRecord(String id, Float cgpa) {
-			this.studentId = id;
-			this.cgpa = cgpa;
-		}
-
-		public String getStudentId() {
-			return studentId;
-		}
-
-		public Float getCgpa() {
-			return cgpa;
-		}
-	}
 
 	public int size() {
 		return recordCount;
 	}
 
 	private void initialize(int newCapacity) {
-		recordTable = new StudentRecord[newCapacity];
-		capacity = newCapacity;
+		if (resolutionStrategy == CollissionResolutionStrategy.SEPARATE_CHAINING) {
+			recordNodes = new Node[newCapacity];
+			capacity = newCapacity;
+		} else {
+			recordTable = new StudentRecord[newCapacity];
+			capacity = newCapacity;
+		}
 	}
 
 	public void initialize() {
@@ -171,18 +161,27 @@ public class StudentHash {
 			if (isStudentIdValid(studentId)) {
 				long hashCode = computeHashCode(studentId);
 				int hashIndex = computeCompressionCode(hashCode);
-				// insert in table if there is no collision
-				if (recordTable[hashIndex] == null) {
-					recordTable[hashIndex] = new StudentRecord(studentId, CGPA);
-					recordCount++;
-				} else {
-					// find next possible empty slot
-					int newIndex = resolveCollision(studentId);
-					if (newIndex == -1) {
-						System.out.println("Insertion of " + studentId + "not possible");
-					} else {
-						recordTable[newIndex] = new StudentRecord(studentId, CGPA);
+				if (resolutionStrategy == CollissionResolutionStrategy.SEPARATE_CHAINING) {
+					if (recordNodes[hashIndex] == null) {
+						recordNodes[hashIndex] = new Node(hashIndex, new StudentRecord(studentId, CGPA));
 						recordCount++;
+					} else {
+						recordNodes[hashIndex].addNode(new Node(hashIndex, new StudentRecord(studentId, CGPA)));
+					}
+				} else {
+					// insert in table if there is no collision
+					if (recordTable[hashIndex] == null) {
+						recordTable[hashIndex] = new StudentRecord(studentId, CGPA);
+						recordCount++;
+					} else {
+						// find next possible empty slot
+						int newIndex = resolveCollision(studentId);
+						if (newIndex == -1) {
+							System.out.println("Insertion of " + studentId + "not possible");
+						} else {
+							recordTable[newIndex] = new StudentRecord(studentId, CGPA);
+							recordCount++;
+						}
 					}
 				}
 			} else {
@@ -198,17 +197,32 @@ public class StudentHash {
 	}
 
 	private void reSizeTable() {
-
 		int newCapacity = 2 * capacity;
+
 		StudentHash newHash = new StudentHash();
 		newHash.initialize(newCapacity);
-		for (StudentRecord stud : recordTable) {
-			if (stud != null) {
-				newHash.insert(stud.getStudentId(), stud.getCgpa());
+
+		if (resolutionStrategy == CollissionResolutionStrategy.SEPARATE_CHAINING) {
+			for (Node node : recordNodes) {
+				Node temp = node;
+				if (temp != null) {
+					do {
+						newHash.insert(temp.getRecord().getStudentId(), temp.getRecord().getCgpa());
+						temp = temp.next();
+					} while (temp != null);
+				}
+
 			}
+			recordNodes = newHash.recordNodes;
+		} else {
+			for (StudentRecord stud : recordTable) {
+				if (stud != null) {
+					newHash.insert(stud.getStudentId(), stud.getCgpa());
+				}
+			}
+			recordTable = newHash.recordTable;
 		}
 		capacity = newCapacity;
-		recordTable = newHash.recordTable;
 	}
 
 	// Find in hash table the CGPA for provided studentId.
@@ -224,32 +238,42 @@ public class StudentHash {
 				System.out.println("studentId is null");
 				return null;
 			}
-			if (studentId.equals(recordTable[hashIndex].getStudentId())) {
-				CGPA = recordTable[hashIndex].getCgpa();
+			if (resolutionStrategy == CollissionResolutionStrategy.SEPARATE_CHAINING) {
+				StudentRecord record = recordNodes[hashIndex].findStudent(studentId);
+				if (record == null) {
+					return null;
+				} else {
+					CGPA = record.getCgpa();
+				}
 			} else {
+				if (studentId.equals(recordTable[hashIndex].getStudentId())) {
+					CGPA = recordTable[hashIndex].getCgpa();
+				} else {
 
-				// Find an element, maximum the size of table times, if not
-				// found then entry not
-				// present.
-				int trial = 1;
-				int index = hashIndex;
-				// Max no of trails is equal to size of array
-				while (trial <= capacity) {
-					if (resolutionStrategy == CollissionResolutionStrategy.LINEAR_PROBING) {
-						index = getNextPossibleLinearIndex(index);
-					} else {
-						index = getNextPossibleDoubleHashIndex(hashCode, hashIndex, trial);
+					// Find an element, maximum the size of table times, if not
+					// found then entry not
+					// present.
+					int trial = 1;
+					int index = hashIndex;
+					// Max no of trails is equal to size of array
+					while (trial <= capacity) {
+						if (resolutionStrategy == CollissionResolutionStrategy.LINEAR_PROBING) {
+							index = getNextPossibleLinearIndex(index);
+						} else {
+							index = getNextPossibleDoubleHashIndex(hashCode, hashIndex, trial);
+						}
+						if (recordTable[index] == null) {
+							System.out.println("recordTable[index] is null (index:" + index + ",trial:" + trial);
+							return null;
+						} else if (studentId.equals(recordTable[index].getStudentId())) {
+							CGPA = recordTable[index].getCgpa();
+							break;
+						}
+						trial++;
 					}
-					if (recordTable[index] == null) {
-						System.out.println("recordTable[index] is null (index:" + index + ",trial:" + trial);
-						return null;
-					} else if (studentId.equals(recordTable[index].getStudentId())) {
-						CGPA = recordTable[index].getCgpa();
-						break;
-					}
-					trial++;
 				}
 			}
+
 		}
 
 		return CGPA;
@@ -257,13 +281,73 @@ public class StudentHash {
 
 	// destroy the table
 	public void deinitialize() {
-
-		for (int i = 0; i < capacity; i++) {
-			if (recordTable[i] != null) {
-				recordTable[i] = null;
-			}
+		if (resolutionStrategy == CollissionResolutionStrategy.SEPARATE_CHAINING) {
+			recordNodes = null;
+		} else {
+			recordTable = null;
 		}
-		recordTable = null;
+
+	}
+}
+
+// Structure to hold student records
+class StudentRecord {
+
+	private String studentId;
+	private Float cgpa;
+
+	StudentRecord(String id, Float cgpa) {
+		this.studentId = id;
+		this.cgpa = cgpa;
 	}
 
+	public String getStudentId() {
+		return studentId;
+	}
+
+	public Float getCgpa() {
+		return cgpa;
+	}
+}
+
+class Node {
+	private int hashIndex;
+	private StudentRecord record;
+	private Node next;
+
+	public Node(int hashIndex, StudentRecord record) {
+		this.hashIndex = hashIndex;
+		this.record = record;
+	}
+
+	public StudentRecord getRecord() {
+		return record;
+	}
+
+	public Node next() {
+		return this.next;
+	}
+
+	public boolean hasNext() {
+		return this.next != null;
+	}
+
+	public void addNode(Node node) {
+		Node current = this;
+		while (current.next != null) {
+			current = current.next;
+		}
+		current.next = node;
+	}
+
+	public StudentRecord findStudent(String studentId) {
+		Node current = this;
+		while (current.next != null && !current.record.getStudentId().equals(studentId)) {
+			current = current.next;
+		}
+		if (current != null && current.record.getStudentId().equals(studentId)) {
+			return current.record;
+		}
+		return null;
+	}
 }
