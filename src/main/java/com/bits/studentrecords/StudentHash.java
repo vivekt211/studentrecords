@@ -8,19 +8,32 @@ public class StudentHash {
 	static final int DOUBLE_HASH_CONST = 101;
 	static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
-	private int HASH_TABLE_CAPACITY = 32;
+	enum CollissionResolutionStrategy {
+		SEPARATE_CHAINING, LINEAR_PROBING, QUADRATIC_PROBING
+	}
+
+	private static final CollissionResolutionStrategy resolutionStrategy = CollissionResolutionStrategy.QUADRATIC_PROBING;
+	private int capacity = 32;
 	private StudentRecord[] recordTable;
 	private int recordCount = 0;
 
-	// structure to hold student records
+	// Structure to hold student records
 	private class StudentRecord {
 
-		String stuId;
-		float CGPA;
+		private String studentId;
+		private Float cgpa;
 
-		StudentRecord(String id, float marks) {
-			stuId = id;
-			CGPA = marks;
+		StudentRecord(String id, Float cgpa) {
+			this.studentId = id;
+			this.cgpa = cgpa;
+		}
+
+		public String getStudentId() {
+			return studentId;
+		}
+
+		public Float getCgpa() {
+			return cgpa;
 		}
 	}
 
@@ -28,50 +41,58 @@ public class StudentHash {
 		return recordCount;
 	}
 
-	// init
-	public void initialize() {
-		recordTable = new StudentRecord[HASH_TABLE_CAPACITY];
-	}
-
 	private void initialize(int newCapacity) {
 		recordTable = new StudentRecord[newCapacity];
-		HASH_TABLE_CAPACITY = newCapacity;
+		capacity = newCapacity;
 	}
 
-	// check if input student id is valid according to required format
-	// YYYYAAADDDD
+	public void initialize() {
+		initialize(capacity);
+	}
+
+	/*
+	 * check if input student id is valid according to required format ie
+	 * YYYYAAADDDD
+	 */
 	private boolean isStudentIdValid(String studentId) {
 
 		boolean isValid = false;
-
 		// student id length check
-		if (studentId.length() == 11) {
-
-			// student id admission year check
-			int admissionYear = Integer.parseInt(studentId.substring(0, 4));
-			if (admissionYear >= 2008 && admissionYear <= 2018) {
-
-				// student id course check
-				String studentCourse = studentId.substring(4, 7);
-				if (studentCourse == "CSE" || studentCourse == "MEC" || studentCourse == "ARC"
-						|| studentCourse == "ECE") {
-				}
-
-				int rollNo = Integer.parseInt(studentId.substring(7, 11));
-				if (rollNo >= 0 && rollNo <= 9999) {
-					isValid = true;
+		try {
+			if (studentId.length() == 11) {
+				// student id admission year check
+				int admissionYear = Integer.parseInt(studentId.substring(0, 4));
+				if (admissionYear >= 2008 && admissionYear <= 2018) {
+					// student id course check
+					String studentCourse = studentId.substring(4, 7);
+					if (studentCourse == "CSE" || studentCourse == "MEC" || studentCourse == "ARC"
+							|| studentCourse == "ECE") {
+					}
+					int rollNo = Integer.parseInt(studentId.substring(7, 11));
+					if (rollNo >= 0 && rollNo <= 9999) {
+						isValid = true;
+					}
 				}
 			}
+		} catch (NumberFormatException ex) {
+			return false;
 		}
-
-		if (!isValid) {
-			System.out.println("Format of Student id is not valid");
-		}
-
 		return isValid;
 	}
 
-	// Compute the hash code map from string type to integer type
+	/*
+	 * Compute the hash code map from string type to integer type
+	 * 
+	 * In some cases, we may need a hash function that guarantees that the
+	 * probabilities that larger numbers of hash values collide is the same as
+	 * what one would get with a random function. One way to achieve such a
+	 * result for an integer key, k, is to use a random polynomial hash
+	 * function, h, which is defined as
+	 * 
+	 * <code> h(k) = ad + k(ad-1 + k(ad-2 + · · · + k(a3 + k(a2 + ka1)) · · · ))
+	 * mod N </code>
+	 *
+	 */
 	private long computeHashCode(String studentId) {
 
 		// copy the last character
@@ -79,36 +100,40 @@ public class StudentHash {
 		long hashWeight = HASH_WEIGHT;
 
 		for (int i = studentId.length() - 2; i >= 0; i--) {
-
-			// Value of A is 10
 			hashCode = hashCode + (Character.getNumericValue((studentId.charAt(i))) * hashWeight);
 			hashWeight = hashWeight * HASH_WEIGHT;
 		}
-		// System.out.println("Hash code: " + hashCode);
 		return hashCode;
 	}
 
 	// compute compression code map
 	private int computeCompressionCode(long hashCode) {
-
 		long val = (COMPRESSION_A * hashCode) + COMPRESSION_B;
-		int comValue = (int) (val % HASH_TABLE_CAPACITY);
-		// System.out.println("compression: " + comValue);
+		int comValue = (int) (val % capacity);
 		return comValue;
 	}
 
-	// In case of collision find the next slot in table
-	// Using double hashing technique to resolve collision
-	int getNextPossibleindex(long hashCode, int comCode, int j) {
-		// Implementing q-k mod q
-		// since the q-k can obtain negative mod value
-		// so Implementing (((q-k)%q)+q)%q
+	/*
+	 * In case of collision find the next slot in table Using Linear probe
+	 * technique to resolve collision
+	 */
+	private int getNextPossibleLinearIndex(int j) {
+		return ++j % capacity;
+	}
+
+	/**
+	 * Implementing q-k mod q since the q-k can obtain negative mod value so
+	 * Implementing (((q-k)%q)+q)%q
+	 * 
+	 */
+	private int getNextPossibleDoubleHashIndex(long hashCode, int comCode, int j) {
+
 		int secondHash = (int) (((DOUBLE_HASH_CONST - hashCode) % DOUBLE_HASH_CONST) + DOUBLE_HASH_CONST)
 				% DOUBLE_HASH_CONST;
 
 		// computing function f(j)
 		int func = j * secondHash;
-		int index = (comCode + func) % HASH_TABLE_CAPACITY;
+		int index = (comCode + func) % capacity;
 		return index;
 	}
 
@@ -117,55 +142,40 @@ public class StudentHash {
 
 		int index = -1;
 		int j = 1;
-
 		long hashCode = computeHashCode(studentId);
-		int comCode = computeCompressionCode(hashCode);
-
-		// In case of collision find next possible empty index.
-		// Max no of trials to find next empty index is equal to size of array.
-		while (j < HASH_TABLE_CAPACITY) {
-			index = getNextPossibleindex(hashCode, comCode, j);
-			// System.out.println("next possible index: " + index);
-			if (recordTable[index] == null) {
-				// System.out.println("empty index found at " + index);
-				break;
+		int hashIndex = computeCompressionCode(hashCode);
+		int index2 = hashIndex;
+		/*
+		 * In case of collision find next possible empty index. Max no of trials
+		 * to find next empty index is equal to size of array.
+		 */
+		while (j <= capacity) {
+			if (resolutionStrategy == CollissionResolutionStrategy.LINEAR_PROBING) {
+				index2 = getNextPossibleLinearIndex(index2);
 			} else {
-				// System.out.println(j + 1 + " time collision detected while
-				// inserting ");
+				index2 = getNextPossibleDoubleHashIndex(hashCode, hashIndex, j);
 			}
-
-			// increase multiplier
+			if (recordTable[index2] == null) {
+				index = index2;
+				break;
+			}
 			j++;
 		}
 		return index;
 	}
 
-	// compute hashId
-	private int HashId(String studentId) {
-
-		long hashCode = computeHashCode(studentId);
-		return computeCompressionCode(hashCode);
-	}
-
 	// Insert record in hash table
 	public void insert(String studentId, float CGPA) {
 
-		if (recordCount < HASH_TABLE_CAPACITY) {
-
+		if (recordCount < capacity) {
 			if (isStudentIdValid(studentId)) {
-
-				int hashId = HashId(studentId);
-				// System.out.println("Hash id for " + studentId + " is " +
-				// hashId);
-
+				long hashCode = computeHashCode(studentId);
+				int hashIndex = computeCompressionCode(hashCode);
 				// insert in table if there is no collision
-				if (recordTable[hashId] == null) {
-					recordTable[hashId] = new StudentRecord(studentId, CGPA);
+				if (recordTable[hashIndex] == null) {
+					recordTable[hashIndex] = new StudentRecord(studentId, CGPA);
 					recordCount++;
 				} else {
-					// System.out.println("collision detected while inserting "
-					// + studentId);
-
 					// find next possible empty slot
 					int newIndex = resolveCollision(studentId);
 					if (newIndex == -1) {
@@ -178,23 +188,26 @@ public class StudentHash {
 			} else {
 				System.out.println("provided student id is not valid, can not insert the record");
 			}
-		} /*
-			 * else { System.out.println("Hash table is full"); }
-			 */
-		if (recordCount / HASH_TABLE_CAPACITY > 0.75) {
+		} else {
+			System.out.println("Hash table is full");
+		}
+
+		if (recordCount / capacity > 0.75) {
 			reSizeTable();
 		}
 	}
 
 	private void reSizeTable() {
-		int newCapacity = 2 * HASH_TABLE_CAPACITY;
+
+		int newCapacity = 2 * capacity;
 		StudentHash newHash = new StudentHash();
 		newHash.initialize(newCapacity);
 		for (StudentRecord stud : recordTable) {
-			if (stud != null)
-				newHash.insert(stud.stuId, stud.CGPA);
+			if (stud != null) {
+				newHash.insert(stud.getStudentId(), stud.getCgpa());
+			}
 		}
-		HASH_TABLE_CAPACITY = newCapacity;
+		capacity = newCapacity;
 		recordTable = newHash.recordTable;
 	}
 
@@ -205,29 +218,33 @@ public class StudentHash {
 		float CGPA = -1.0f;
 		if (isStudentIdValid(studentId)) {
 
-			int hash = HashId(studentId);
-			if(studentId==null){
+			long hashCode = computeHashCode(studentId);
+			int hashIndex = computeCompressionCode(hashCode);
+			if (studentId == null) {
+				System.out.println("studentId is null");
 				return null;
 			}
-			if (studentId.equals(recordTable[hash].stuId)) {
-				CGPA = recordTable[hash].CGPA;
+			if (studentId.equals(recordTable[hashIndex].getStudentId())) {
+				CGPA = recordTable[hashIndex].getCgpa();
 			} else {
 
 				// Find an element, maximum the size of table times, if not
 				// found then entry not
 				// present.
 				int trial = 1;
-				long hashCode = computeHashCode(studentId);
-				int comCode = computeCompressionCode(hashCode);
+				int index = hashIndex;
 				// Max no of trails is equal to size of array
-				while (trial < HASH_TABLE_CAPACITY) {
-
-					int index = getNextPossibleindex(hashCode, comCode, trial);
-
-					if (recordTable[index]==null){
+				while (trial <= capacity) {
+					if (resolutionStrategy == CollissionResolutionStrategy.LINEAR_PROBING) {
+						index = getNextPossibleLinearIndex(index);
+					} else {
+						index = getNextPossibleDoubleHashIndex(hashCode, hashIndex, trial);
+					}
+					if (recordTable[index] == null) {
+						System.out.println("recordTable[index] is null (index:" + index + ",trial:" + trial);
 						return null;
-					}else if(studentId.equals(recordTable[index].stuId)) {
-						CGPA = recordTable[index].CGPA;
+					} else if (studentId.equals(recordTable[index].getStudentId())) {
+						CGPA = recordTable[index].getCgpa();
 						break;
 					}
 					trial++;
@@ -241,7 +258,7 @@ public class StudentHash {
 	// destroy the table
 	public void deinitialize() {
 
-		for (int i = 0; i < HASH_TABLE_CAPACITY; i++) {
+		for (int i = 0; i < capacity; i++) {
 			if (recordTable[i] != null) {
 				recordTable[i] = null;
 			}

@@ -34,9 +34,10 @@ public class HashfunctionTest {
 						id = id.concat("0");
 					}
 					id = id.concat(String.valueOf(roll));
-					System.out.println(id);
+					
 					Random rand = new Random();
 					float val = rand.nextFloat();
+					//System.out.println(id+"::::"+val);
 					hash.insert(id, val);
 					hashMap.put(id, val);
 					count++;
@@ -49,6 +50,8 @@ public class HashfunctionTest {
 	@Test
 	public void testCollisions() {
 		hashMap.forEach((key, value) -> {
+			System.out.println(key + ","+value+","+hash.getStudentCGPA(key));
+			//System.out.println(hash.getStudentCGPA(key));
 			assertEquals(value, hash.getStudentCGPA(key));
 		});
 	}
