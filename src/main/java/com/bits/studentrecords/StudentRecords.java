@@ -33,36 +33,9 @@ public class StudentRecords {
 		records.initialize();
 	}
 
-	public void insertRecordsFromFile(StudentHash records) {
-
-		// Read file to get records
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader("input.txt"));
-			String record;
-			while ((record = br.readLine()) != null) {
-				String studentId = record.substring(0, 11);
-				float CGPA = Float.valueOf(record.substring(14, 17));
-				// Insert records one by one in hash table
-				insertStudentRec(records, studentId, CGPA);
-			}
-
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			if (br != null) {
-				try {
-					br.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	}
-
 	// Insert a single record in table
-	private void insertStudentRec(StudentHash records, String studentId, float CGPA) {
-		records.insert(studentId, CGPA);
+	public void insertStudentRec(StudentHash records, String studentId, float cgpa) {
+		records.insert(studentId, cgpa);
 	}
 
 	public void hallOfFame(StudentHash records, float CGPA) {
@@ -102,7 +75,7 @@ public class StudentRecords {
 
 	}
 
-	void newCourseList(StudentHash records, float CGPAFrom, float CPGATo) {
+	public void newCourseList(StudentHash records, float cgpaFrom, float cgpaTo) {
 
 		if (records.size() > 0) {
 			PrintWriter writer = null;
@@ -117,7 +90,7 @@ public class StudentRecords {
 					int admissionYear = Integer.parseInt(studentId.substring(0, 4));
 					// Last 5 years 2013-2017
 					if (admissionYear >= 2013) {
-						if (studentCGPA >= CGPAFrom && studentCGPA <= CPGATo) {
+						if (studentCGPA >= cgpaFrom && studentCGPA <= cgpaTo) {
 							writer.println(studentId);
 						}
 					}
@@ -138,20 +111,6 @@ public class StudentRecords {
 		}
 	}
 
-	private int getIdForCourse(String course) {
-
-		int id = -1;
-		if (course.equals("CSE"))
-			id = CSE;
-		if (course.equals("MEC"))
-			id = MEC;
-		if (course.equals("ARC"))
-			id = ARC;
-		if (course.equals("ECE"))
-			id = ECE;
-
-		return id;
-	}
 
 	public void depAvg(StudentHash records) {
 
@@ -215,8 +174,50 @@ public class StudentRecords {
 		}
 	}
 
-	void destroyHash(StudentHash records) {
+	public void destroyHash(StudentHash records) {
 		records.deinitialize();
+	}
+	
+	private void insertRecordsFromFile(StudentHash records) {
+
+		// Read file to get records
+		BufferedReader br = null;
+		try {
+			br = new BufferedReader(new FileReader("input.txt"));
+			String record;
+			while ((record = br.readLine()) != null) {
+				String studentId = record.substring(0, 11);
+				float CGPA = Float.valueOf(record.substring(14, 17));
+				// Insert records one by one in hash table
+				insertStudentRec(records, studentId, CGPA);
+			}
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (br != null) {
+				try {
+					br.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	private int getIdForCourse(String course) {
+
+		int id = -1;
+		if (course.equals("CSE"))
+			id = CSE;
+		if (course.equals("MEC"))
+			id = MEC;
+		if (course.equals("ARC"))
+			id = ARC;
+		if (course.equals("ECE"))
+			id = ECE;
+
+		return id;
 	}
 
 }
