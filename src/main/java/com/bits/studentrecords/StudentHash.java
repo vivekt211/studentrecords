@@ -1,29 +1,38 @@
 package com.bits.studentrecords;
 
-public class StudentHash {
+import java.util.Iterator;
+
+import com.bits.studentrecords.StudentHash.CollissionResolutionStrategy;
+
+public class StudentHash implements Iterable<StudentRecord> {
 
 	static final int HASH_WEIGHT = 31;
 	static final int COMPRESSION_A = 3;
 	static final int COMPRESSION_B = 269;
-	static final int DOUBLE_HASH_CONST = 101;
 	static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
 	enum CollissionResolutionStrategy {
-		SEPARATE_CHAINING, LINEAR_PROBING, QUADRATIC_PROBING
+		SEPARATE_CHAINING, LINEAR_PROBING
 	}
 
 	/**
 	 * By Changing the value of this field the collosionResolutionStrategy can
 	 * be configured. Please change it as per your need
 	 */
-	private static final CollissionResolutionStrategy resolutionStrategy = CollissionResolutionStrategy.SEPARATE_CHAINING;
+	private static final CollissionResolutionStrategy resolutionStrategy = CollissionResolutionStrategy.LINEAR_PROBING;
+
 	private int capacity = 32;
 	private StudentRecord[] recordTable;
 	private Node[] recordNodes;
+	private Node linkedNodes;
 	private int recordCount = 0;
 
 	public int size() {
 		return recordCount;
+	}
+
+	public int actualRecordCount() {
+		return recordNodes.length;
 	}
 
 	private void initialize(int newCapacity) {
@@ -98,8 +107,11 @@ public class StudentHash {
 
 	// compute compression code map
 	private int computeCompressionCode(long hashCode) {
+
 		long val = (COMPRESSION_A * hashCode) + COMPRESSION_B;
 		int comValue = (int) (val % capacity);
+		if (comValue < 0)
+			comValue += capacity;
 		return comValue;
 	}
 
@@ -109,22 +121,6 @@ public class StudentHash {
 	 */
 	private int getNextPossibleLinearIndex(int j) {
 		return ++j % capacity;
-	}
-
-	/**
-	 * Implementing q-k mod q since the q-k can obtain negative mod value so
-	 * Implementing (((q-k)%q)+q)%q
-	 * 
-	 */
-	private int getNextPossibleDoubleHashIndex(long hashCode, int comCode, int j) {
-
-		int secondHash = (int) (((DOUBLE_HASH_CONST - hashCode) % DOUBLE_HASH_CONST) + DOUBLE_HASH_CONST)
-				% DOUBLE_HASH_CONST;
-
-		// computing function f(j)
-		int func = j * secondHash;
-		int index = (comCode + func) % capacity;
-		return index;
 	}
 
 	// In case of collision, find next empty slot
@@ -140,15 +136,12 @@ public class StudentHash {
 		 * to find next empty index is equal to size of array.
 		 */
 		while (j <= capacity) {
-			if (resolutionStrategy == CollissionResolutionStrategy.LINEAR_PROBING) {
-				index2 = getNextPossibleLinearIndex(index2);
-			} else {
-				index2 = getNextPossibleDoubleHashIndex(hashCode, hashIndex, j);
-			}
+			index2 = getNextPossibleLinearIndex(index2);
 			if (recordTable[index2] == null) {
 				index = index2;
 				break;
 			}
+
 			j++;
 		}
 		return index;
@@ -162,11 +155,18 @@ public class StudentHash {
 				long hashCode = computeHashCode(studentId);
 				int hashIndex = computeCompressionCode(hashCode);
 				if (resolutionStrategy == CollissionResolutionStrategy.SEPARATE_CHAINING) {
+					Node newNode = new Node(hashIndex, new StudentRecord(studentId, CGPA));
 					if (recordNodes[hashIndex] == null) {
-						recordNodes[hashIndex] = new Node(hashIndex, new StudentRecord(studentId, CGPA));
+						recordNodes[hashIndex] = newNode;
 						recordCount++;
 					} else {
-						recordNodes[hashIndex].addNode(new Node(hashIndex, new StudentRecord(studentId, CGPA)));
+						recordNodes[hashIndex].addNode(newNode);
+						recordCount++;
+					}
+					if (linkedNodes == null) {
+						linkedNodes = newNode;
+					} else {
+						linkedNodes.setNextLinked(newNode);
 					}
 				} else {
 					// insert in table if there is no collision
@@ -198,7 +198,6 @@ public class StudentHash {
 
 	private void reSizeTable() {
 		int newCapacity = 2 * capacity;
-
 		StudentHash newHash = new StudentHash();
 		newHash.initialize(newCapacity);
 
@@ -226,10 +225,10 @@ public class StudentHash {
 	}
 
 	// Find in hash table the CGPA for provided studentId.
-	// In case there is no entry return -1.0f as error.
-	public Float getStudentCGPA(String studentId) {
+	// In case there is no entry return null.
+	public Float get(String studentId) {
 
-		float CGPA = -1.0f;
+		Float CGPA = null;
 		if (isStudentIdValid(studentId)) {
 
 			long hashCode = computeHashCode(studentId);
@@ -246,7 +245,7 @@ public class StudentHash {
 					CGPA = record.getCgpa();
 				}
 			} else {
-				if (studentId.equals(recordTable[hashIndex].getStudentId())) {
+				if (recordTable[hashIndex] != null && studentId.equals(recordTable[hashIndex].getStudentId())) {
 					CGPA = recordTable[hashIndex].getCgpa();
 				} else {
 
@@ -257,11 +256,7 @@ public class StudentHash {
 					int index = hashIndex;
 					// Max no of trails is equal to size of array
 					while (trial <= capacity) {
-						if (resolutionStrategy == CollissionResolutionStrategy.LINEAR_PROBING) {
-							index = getNextPossibleLinearIndex(index);
-						} else {
-							index = getNextPossibleDoubleHashIndex(hashCode, hashIndex, trial);
-						}
+						index = getNextPossibleLinearIndex(index);
 						if (recordTable[index] == null) {
 							System.out.println("recordTable[index] is null (index:" + index + ",trial:" + trial);
 							return null;
@@ -287,6 +282,16 @@ public class StudentHash {
 			recordTable = null;
 		}
 
+	}
+
+	@Override
+	public Iterator<StudentRecord> iterator() {
+		// TODO Auto-generated method stub
+		if (resolutionStrategy == CollissionResolutionStrategy.SEPARATE_CHAINING) {
+			return new StudentHashIterator(linkedNodes);
+		} else {
+			return new StudentHashIterator(recordTable);
+		}
 	}
 }
 
@@ -314,6 +319,7 @@ class Node {
 	private int hashIndex;
 	private StudentRecord record;
 	private Node next;
+	private Node linkedNext;
 
 	public Node(int hashIndex, StudentRecord record) {
 		this.hashIndex = hashIndex;
@@ -340,6 +346,18 @@ class Node {
 		current.next = node;
 	}
 
+	public Node nextLinked() {
+		return this.linkedNext;
+	}
+
+	public boolean hasNextLinked() {
+		return this.linkedNext != null;
+	}
+
+	public void setNextLinked(Node node) {
+		this.linkedNext = node;
+	}
+
 	public StudentRecord findStudent(String studentId) {
 		Node current = this;
 		while (current.next != null && !current.record.getStudentId().equals(studentId)) {
@@ -350,4 +368,59 @@ class Node {
 		}
 		return null;
 	}
+}
+
+class StudentHashIterator implements Iterator<StudentRecord> {
+
+	private int currentIndex;
+	private CollissionResolutionStrategy resolutionStrategy;
+	private StudentRecord[] recordTable;
+	private Node currentNode;
+
+	public StudentHashIterator(StudentRecord[] recordTable) {
+		this.recordTable = recordTable;
+		this.resolutionStrategy = resolutionStrategy.LINEAR_PROBING;
+		this.currentIndex = -1;
+	}
+
+	public StudentHashIterator(Node recordNodes) {
+		this.currentNode = recordNodes;
+		this.resolutionStrategy = resolutionStrategy.SEPARATE_CHAINING;
+		this.currentIndex = -1;
+	}
+
+	@Override
+	public boolean hasNext() {
+		if (resolutionStrategy == resolutionStrategy.SEPARATE_CHAINING) {
+			return currentNode.hasNextLinked();
+		} else {
+			int tempIndex = currentIndex + 1;
+			while (tempIndex < recordTable.length) {
+				if (recordTable[tempIndex++] != null) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+
+	@Override
+	public StudentRecord next() {
+		if (resolutionStrategy == resolutionStrategy.SEPARATE_CHAINING) {
+			currentNode = currentNode.nextLinked();
+			return currentNode == null ? null : currentNode.getRecord();
+		} else {
+			int tempIndex = ++currentIndex;
+			while (tempIndex < recordTable.length) {
+				StudentRecord record = recordTable[tempIndex];
+				if (record != null) {
+					currentIndex = tempIndex;
+					return record;
+				}
+				tempIndex++;
+			}
+		}
+		return null;
+	}
+
 }

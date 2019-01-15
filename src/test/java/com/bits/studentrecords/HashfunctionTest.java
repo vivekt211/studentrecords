@@ -3,6 +3,7 @@ package com.bits.studentrecords;
 import static org.junit.Assert.assertEquals;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
 
@@ -34,25 +35,38 @@ public class HashfunctionTest {
 						id = id.concat("0");
 					}
 					id = id.concat(String.valueOf(roll));
-					
+
 					Random rand = new Random();
 					float val = rand.nextFloat();
-					//System.out.println(id+"::::"+val);
 					hash.insert(id, val);
 					hashMap.put(id, val);
 					count++;
 				}
 			}
 		}
-		System.out.println(count);
+		// System.out.println(count);
 	}
 
 	@Test
 	public void testCollisions() {
 		hashMap.forEach((key, value) -> {
-			System.out.println(key + ","+value+","+hash.getStudentCGPA(key));
-			//System.out.println(hash.getStudentCGPA(key));
-			assertEquals(value, hash.getStudentCGPA(key));
+			assertEquals(value, hash.get(key));
 		});
+	}
+
+	@Test
+	public void testIteration() {
+		hashMap.forEach((key, value) -> {
+			assertEquals(value, hash.get(key));
+		});
+		Iterator<StudentRecord> iterator = hash.iterator();
+		int count = 0;
+		while (iterator.hasNext()) {
+			StudentRecord record = iterator.next();
+			assertEquals(record.getCgpa(), hashMap.get(record.getStudentId()));
+			count++;
+		}
+		assertEquals(hash.size(), count);
+
 	}
 }

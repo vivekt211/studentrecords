@@ -1,7 +1,13 @@
 package com.bits.studentrecords;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.text.DecimalFormat;
+import java.util.Iterator;
 
 public class StudentRecords {
 
@@ -33,24 +39,24 @@ public class StudentRecords {
 		BufferedReader br = null;
 		try {
 			br = new BufferedReader(new FileReader("input.txt"));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
-
-		// Read records line by line
-		String record;
-		try {
+			String record;
 			while ((record = br.readLine()) != null) {
 				String studentId = record.substring(0, 11);
 				float CGPA = Float.valueOf(record.substring(14, 17));
-
 				// Insert records one by one in hash table
 				insertStudentRec(records, studentId, CGPA);
 			}
-			br.close();
+
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} finally {
+			if (br != null) {
+				try {
+					br.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 		}
 	}
 
@@ -63,43 +69,31 @@ public class StudentRecords {
 
 		if (records.size() > 0) {
 
-			// Read file to get records
-			BufferedReader br = null;
+			PrintWriter writer = null;
 			try {
-				br = new BufferedReader(new FileReader("input.txt"));
-			} catch (FileNotFoundException e) {
-
-				e.printStackTrace();
-			}
-
-			// Read records line by line
-			String record;
-			PrintWriter writer;
-			try {
+				Iterator<StudentRecord> it = records.iterator();
 				writer = new PrintWriter("halloffame.txt", "UTF-8");
-
-				while ((record = br.readLine()) != null) {
-					String studentId = record.substring(0, 11);
-
+				while (it.hasNext()) {
+					StudentRecord record = it.next();
+					String studentId = record.getStudentId();
 					// get CGPA of each record
-					float studentCGPA = records.getStudentCGPA(studentId);
+					float studentCGPA = record.getCgpa();
 
 					// Add student id to hall of fame
 					if (studentCGPA > CGPA) {
 						writer.println(studentId);
 					}
 				}
-				writer.close();
-				br.close();
+
 			} catch (FileNotFoundException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			} catch (UnsupportedEncodingException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} finally {
+				if (writer != null)
+					writer.close();
 			}
 
 		} else {
@@ -111,50 +105,32 @@ public class StudentRecords {
 	void newCourseList(StudentHash records, float CGPAFrom, float CPGATo) {
 
 		if (records.size() > 0) {
-
-			// Read file to get records
-			BufferedReader br = null;
-			try {
-				br = new BufferedReader(new FileReader("input.txt"));
-			} catch (FileNotFoundException e) {
-
-				e.printStackTrace();
-			}
-
-			// Read records line by line
-			String record;
-			PrintWriter writer;
+			PrintWriter writer = null;
 			try {
 				writer = new PrintWriter("courseOffer.txt", "UTF-8");
-
-				while ((record = br.readLine()) != null) {
-
-					String studentId = record.substring(0, 11);
+				Iterator<StudentRecord> it = records.iterator();
+				while (it.hasNext()) {
+					StudentRecord record = it.next();
+					String studentId = record.getStudentId();
+					// get CGPA of each record
+					float studentCGPA = record.getCgpa();
 					int admissionYear = Integer.parseInt(studentId.substring(0, 4));
-
 					// Last 5 years 2013-2017
 					if (admissionYear >= 2013) {
-
-						// get CGPA of each record
-						float studentCGPA = records.getStudentCGPA(studentId);
-
-						// add student id to course offer, if CGPA falls in given range
 						if (studentCGPA >= CGPAFrom && studentCGPA <= CPGATo) {
 							writer.println(studentId);
 						}
 					}
 				}
-				writer.close();
-				br.close();
 			} catch (FileNotFoundException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			} catch (UnsupportedEncodingException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} finally {
+				if (writer != null)
+					writer.close();
 			}
 
 		} else {
@@ -188,31 +164,25 @@ public class StudentRecords {
 
 		// array to hold data for 4 departments
 		DepatmentData[] data = new DepatmentData[4];
-
+		for (int i = 0; i < 4; i++) {
+			data[i] = new DepatmentData();
+		}
 		if (records.size() > 0) {
 
 			// Read records line by line
-			String record;
-			PrintWriter writer;
+			PrintWriter writer = null;
 			try {
-				BufferedReader br = new BufferedReader(new FileReader("input.txt"));
 				writer = new PrintWriter("departmentAverage.txt", "UTF-8");
-
-				// allocate memory
-				for (int i = 0; i < 4; i++) {
-					data[i] = new DepatmentData();
-				}
-
-				while ((record = br.readLine()) != null) {
-
-					String studentId = record.substring(0, 11);
+				Iterator<StudentRecord> it = records.iterator();
+				while (it.hasNext()) {
+					StudentRecord record = it.next();
+					String studentId = record.getStudentId();
+					// get CGPA of each record
+					float studentCGPA = record.getCgpa();
 					String studentCourse = studentId.substring(4, 7);
 
-					float studentCGPA = records.getStudentCGPA(studentId);
-
-					// get id equivalent to course
+					// get index equivalent to course
 					int id = getIdForCourse(studentCourse);
-
 					if (id != -1) {
 
 						data[id].sum += studentCGPA;
@@ -223,7 +193,6 @@ public class StudentRecords {
 						}
 					}
 				}
-
 				// format average to 2 places of decimal value
 				DecimalFormat df = new DecimalFormat("0.00");
 				writer.println("CSE, Max: " + data[CSE].max + " ,Avg: " + df.format(data[CSE].sum / data[CSE].totalNo));
@@ -231,17 +200,14 @@ public class StudentRecords {
 				writer.println("ARC, Max: " + data[ARC].max + " ,Avg: " + df.format(data[ARC].sum / data[ARC].totalNo));
 				writer.println("ECE, Max: " + data[ECE].max + " ,Avg: " + df.format(data[ECE].sum / data[ECE].totalNo));
 
-				writer.close();
-				br.close();
 			} catch (FileNotFoundException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			} catch (UnsupportedEncodingException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} finally {
+				writer.close();
 			}
 
 		} else {
@@ -250,7 +216,6 @@ public class StudentRecords {
 	}
 
 	void destroyHash(StudentHash records) {
-
 		records.deinitialize();
 	}
 
